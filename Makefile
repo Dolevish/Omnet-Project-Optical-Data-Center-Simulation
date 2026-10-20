@@ -1,23 +1,27 @@
+MODE ?= release
+CXX ?= c++
+.PHONY: all makefiles checkmakefiles clean cleanall test smoke
 all: checkmakefiles
-	cd src && $(MAKE)
-
-clean: checkmakefiles
-	cd src && $(MAKE) clean
-
-cleanall: checkmakefiles
-	cd src && $(MAKE) MODE=release clean
-	cd src && $(MAKE) MODE=debug clean
-	rm -f src/Makefile
+	$(MAKE) -C src MODE=$(MODE)
 
 makefiles:
-	cd src && opp_makemake -f --deep
+	cd src && opp_makemake -f --deep -o OpticalDataCenter
 
 checkmakefiles:
-	@if [ ! -f src/Makefile ]; then \
-	echo; \
-	echo '======================================================================='; \
-	echo 'src/Makefile does not exist. Please use "make makefiles" to generate it!'; \
-	echo '======================================================================='; \
-	echo; \
-	exit 1; \
-	fi
+	@test -f src/Makefile || { echo 'Run make makefiles in an OMNeT++ environment first.'; exit 1; }
+
+clean:
+	@if test -f src/Makefile; then $(MAKE) -C src MODE=$(MODE) clean; fi
+	rm -rf build
+
+cleanall: clean
+	@if test -f src/Makefile; then $(MAKE) -C src MODE=debug clean; $(MAKE) -C src MODE=release clean; fi
+	rm -f src/Makefile
+
+test:
+	mkdir -p build
+	$(CXX) -std=c++17 -O2 -Wall -Wextra -Wpedantic -Werror -Isrc tests/scheduler_test.cc src/VermilionScheduler.cc -o build/scheduler_test
+	./build/scheduler_test
+
+smoke: all
+	python3 tests/smoke.py

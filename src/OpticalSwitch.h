@@ -1,70 +1,40 @@
-#ifndef __OPTICALSWITCH_H_
-#define __OPTICALSWITCH_H_
-
+#ifndef OPTICAL_SWITCH_H
+#define OPTICAL_SWITCH_H
 #include <omnetpp.h>
-#include <vector>
+#include <memory>
 #include <queue>
+#include <vector>
+#include "FlowPacket.h"
 #include "VermilionScheduler.h"
 
-using namespace omnetpp;
-
-class OpticalSwitch : public cSimpleModule
-{
-  private:
-    // פרמטרים
-    int numPorts;
-    double reconfigurationDelay;
-    double timeslotDuration;
-    std::string schedulingAlgorithm;
-    int k;  // Vermilion parameter
-
-    // מצב פנימי
-    std::vector<int> currentMatching;              // ה-matching הנוכחי
-    std::vector<std::vector<int>> schedule;        // לוח זמנים מלא
-    std::vector<std::queue<cMessage*>> inputQueues; // תורים לכל פורט כניסה
-    int currentTimeslot;                           // timeslot נוכחי
-    int scheduleIndex;                             // אינדקס בלוח הזמנים
-    cMessage *reconfigureEvent;                    // אירוע reconfiguration
-    bool isReconfiguring;                          // האם במצב reconfiguration
-
-    // מנגנון תזמון שליחה
-    std::vector<cMessage*> transmissionEvents;     // אירועי סיום שידור לכל פורט
-
-    // Vermilion scheduler
-    VermilionScheduler *vermilionScheduler;
-
-    // סטטיסטיקות
-    simsignal_t utilizationSignal;
-    simsignal_t reconfigurationCountSignal;
-    simsignal_t throughputSignal;
-    simsignal_t packetSwitchedSignal;
-    simsignal_t packetDroppedSignal;
-
-    long totalReconfigurations;
-    long totalPacketsSwitched;
-    long totalPacketsDropped;
-
-    // גודל מקסימלי לתור
-    static const int MAX_QUEUE_SIZE = 1000;
-
-    std::vector<std::vector<double>> generateTrafficMatrix();
-    std::string detectTrafficPattern();
-
+class OpticalSwitch : public omnetpp::cSimpleModule {
+  public:
+    ~OpticalSwitch() override;
   protected:
-    virtual void initialize() override;
-    virtual void handleMessage(cMessage *msg) override;
-    virtual void finish() override;
-
+    void initialize() override;
+    void handleMessage(omnetpp::cMessage *msg) override;
+    void finish() override;
   private:
-    // פונקציות עזר
-    void handlePacket(cMessage *msg);
-    void forwardPacket(cMessage *msg, int inPort);
-    void scheduleReconfiguration();
-    void reconfigure();
+    int numPorts = 0;
+    int queueCapacity = 0;
+    bool reconfiguring = false;
+    omnetpp::simtime_t slotDuration, reconfigurationDelay, slotEnd;
+    omnetpp::cMessage *slotEvent = nullptr, *readyEvent = nullptr;
+    std::vector<omnetpp::cMessage *> txEvents;
+    std::vector<omnetpp::cChannel *> channels;
+    std::vector<std::vector<std::queue<FlowPacket *>>> queues;
+    std::vector<long> queuedPerInput;
+    VermilionScheduler::Matrix queuedBytes;
+    VermilionScheduler::Schedule schedule;
+    std::vector<int> matching;
+    size_t scheduleIndex = 0;
+    std::unique_ptr<VermilionScheduler> scheduler;
+    long received = 0, switched = 0, dropped = 0, queued = 0, reconfigurations = 0;
+    double transmittedBits = 0, busySeconds = 0;
+    omnetpp::simsignal_t switchedSignal, droppedSignal, bufferSignal, reconfigurationSignal;
     void updateSchedule();
-    std::vector<int> computeRoundRobinMatching();
-    void processQueuedPackets();
-    void tryToSendFromQueue(int inPort);  // חדש!
+    void beginSlot();
+    void trySend(int input);
+    void drainQueues();
 };
-
 #endif

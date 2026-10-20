@@ -1,37 +1,33 @@
 package opticaldatacenter;
 
-// מודול השרת - מייצר תעבורה ומקבל חבילות
 simple Server
 {
     parameters:
-        @display("i=device/server");
-        
-        // פרמטרים ליצירת תעבורה
-        double sendRate @unit(bps) = default(10Gbps);  // קצב שליחה
-        string trafficPattern = default("uniform");     // דפוס תעבורה: uniform, permutation, skewed, websearch
-        
-        // פרמטרים לזיהוי
         int serverId = default(0);
-        int numServers = default(16);
-        
-        // פרמטרים ל-skewed traffic
-        double skewFactor = default(0.8);  // 80% מהתעבורה ל-20% מהשרתים
-        
-        // פרמטרים ל-websearch workload
+        int numServers = default(8);
+        int packetBytes = default(1500);
+        int maxPendingFlows = default(10000);
+        // Mean offered traffic rate. The channel controls serialization speed.
+        double sendRate @unit(bps) = default(1Gbps);
+        string trafficPattern = default("uniform");
+        double skewFactor = default(0.8);
         bool useWebSearchWorkload = default(false);
-        
-        // סטטיסטיקות
+        // -1s generates throughout the run; finite values allow a drain phase.
+        double trafficStopTime @unit(s) = default(-1s);
+        @display("i=device/server");
         @signal[packetSent](type=long);
         @signal[packetReceived](type=long);
-        @signal[queueLength](type=long);
+        @signal[pendingFlows](type=long);
+        @signal[flowRejected](type=long);
         @signal[flowCompletionTime](type=simtime_t);
-        
-        @statistic[packetSent](title="packets sent"; record=count,vector);
-        @statistic[packetReceived](title="packets received"; record=count,vector);
-        @statistic[queueLength](title="queue length"; record=vector,timeavg,max);
-        @statistic[flowCompletionTime](title="flow completion time"; record=vector,histogram);
-        
+        @signal[packetDelay](type=simtime_t);
+        @statistic[packetSent](record=count);
+        @statistic[packetReceived](record=count);
+        @statistic[pendingFlows](record=timeavg,max,vector);
+        @statistic[flowRejected](record=count);
+        @statistic[flowCompletionTime](unit=s; record=count,mean,max,histogram,vector);
+        @statistic[packetDelay](unit=s; record=mean,max,histogram);
     gates:
-        output out;
         input in;
+        output out;
 }
