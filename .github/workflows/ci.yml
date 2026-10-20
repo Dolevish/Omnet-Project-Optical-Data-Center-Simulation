@@ -1,0 +1,37 @@
+name: Simulation checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  scheduler:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test scheduling invariants
+        run: make test
+  simulation:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential bison flex perl python3 pkg-config zlib1g-dev
+      - name: Build OMNeT++ 6.1 (headless)
+        shell: bash
+        run: |
+          git clone --depth 1 --branch omnetpp-6.1.0 https://github.com/omnetpp/omnetpp.git "$RUNNER_TEMP/omnetpp"
+          cd "$RUNNER_TEMP/omnetpp"
+          git checkout f7568267cd58d461319965b3cd59722338779edd
+          cp configure.user.dist configure.user
+          mkdir -p bin lib
+          source setenv -q
+          ./configure WITH_QTENV=no WITH_OSG=no WITH_SCAVE_PYTHON_BINDINGS=no PREFER_CLANG=no PREFER_LLD=no
+          make -j2 MODE=release base
+      - name: Build and run end-to-end checks
+        shell: bash
+        run: |
+          source "$RUNNER_TEMP/omnetpp/setenv" -q
+          make makefiles
+          make -j2
+          make smoke

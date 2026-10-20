@@ -1,32 +1,30 @@
 package opticaldatacenter;
 
-// רשת ה-Data Center האופטית הראשית
+// Full-duplex server links to a central, buffered optical circuit switch.
 network OpticalDataCenter
 {
     parameters:
-        int numServers = default(16);  // מספר השרתים ברשת
-        @display("bgb=1200,800;bgl=2");
-        
+        int numServers = default(8);
+        int packetBytes = default(1500);
+        double linkRate @unit(bps) = default(100Gbps);
+        double propagationDelay @unit(s) = default(0s);
+        @display("bgb=1100,650");
     submodules:
-        // מערך של שרתים
         server[numServers]: Server {
             parameters:
-                numServers = parent.numServers;  // העבר את הפרמטר מהרשת
-                serverId = index;  // הוסף את זה!
-                @display("p=100,100,r,150;i=device/server");
+                numServers = parent.numServers;
+                serverId = index;
+                packetBytes = parent.packetBytes;
+                @display("p=120,100,r,120;i=device/server");
         }
-        
-        // מתג אופטי מרכזי
         opticalSwitch: OpticalSwitch {
             parameters:
                 numPorts = parent.numServers;
-                @display("p=600,400;i=device/switch");
+                @display("p=550,400;i=device/switch");
         }
-        
     connections:
-        // חיבור כל שרת למתג האופטי
         for i=0..numServers-1 {
-            server[i].out --> {datarate = 100Gbps; delay = 0s;} --> opticalSwitch.in[i];
-            opticalSwitch.out[i] --> {datarate = 100Gbps; delay = 0s;} --> server[i].in;
+            server[i].out --> { datarate = parent.linkRate; delay = parent.propagationDelay; } --> opticalSwitch.in[i];
+            opticalSwitch.out[i] --> { datarate = parent.linkRate; delay = parent.propagationDelay; } --> server[i].in;
         }
 }
